@@ -43,6 +43,7 @@ fn numcheck(input:u128) -> (bool, u128) {
                  }
                  else {
                      if input != 2 {
+                    tx1.send(2).unwrap();
                     return (false, 2)
                      }
                      else {
