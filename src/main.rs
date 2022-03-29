@@ -48,7 +48,7 @@ fn numcheck(input:u128) -> (bool, u128) {
                         Ok(()) => 2,
                         Err(_) => 0,
                     };
-                    bar1.finish();
+                    //bar1.finish();
                     return (true, count);
                  }
 
@@ -57,7 +57,7 @@ fn numcheck(input:u128) -> (bool, u128) {
                         Ok(()) => 2,
                         Err(_) => 0,
                      };
-                     bar1.finish();
+                     //bar1.finish();
                      return (false, count);
                  }
 
@@ -68,7 +68,7 @@ fn numcheck(input:u128) -> (bool, u128) {
                             Ok(()) => 2,
                             Err(_) => 0,
                         };
-                        bar1.finish();
+                        //bar1.finish();
                      return (true, count);
                      }       
                  
@@ -77,7 +77,7 @@ fn numcheck(input:u128) -> (bool, u128) {
                             Ok(()) => 2,
                             Err(_) => 0,
                         };
-                        bar1.finish();
+                        //bar1.finish();
                         return (false, count);
                      }
 
