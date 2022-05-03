@@ -1,10 +1,10 @@
 use std::io;
 use std::thread;
 use num_integer::Roots;
-use std::sync::mpsc;
 use num_cpus::get;
 use indicatif::ProgressBar;
-
+use ringbuf::RingBuffer;
+use std::time::Duration;
 fn main() {
     let user_given_number = asks_user_for_number();
     let divisor = finds_if_number_is_prime(user_given_number);
@@ -30,74 +30,80 @@ fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
     else {
         let number_of_threads:u128 = ((get()) as u128) * 2;
         println!("spinning up {} threads", number_of_threads);
-        let bar = ProgressBar::new(number_to_check.sqrt().try_into().unwrap());
-        let (tx, rx) = mpsc::channel();
+        let progress_bar = ProgressBar::new(number_to_check.sqrt().try_into().unwrap());
         let mut count2:u128 = 1;
-        //let (graphtx, graphrx) = mpsc::channel();
+        let mut thread_group_ring_buffers_divisor = vec![];
+        let mut thread_group_ring_buffers_stop = vec![];
         let mut threads_group = vec![];
         for thread_number in 0..number_of_threads {
-            let tx1 = tx.clone();
-            let bar1 = bar.clone();
-            // Spin up another thread
+            let progress_bar_clone = progress_bar.clone();
+            let this_thread_ring_buffer_divisor = RingBuffer::<u128>::new(1);
+            let this_thread_ring_buffer_stop = RingBuffer::<bool>::new(1);
+            let (mut this_thread_ring_buffer_divisor_write, this_thread_ring_buffer_divisor_read) = this_thread_ring_buffer_divisor.split();
+            let (this_thread_ring_buffer_stop_write, this_thread_ring_buffer_stop_read) = this_thread_ring_buffer_stop.split();
+            thread_group_ring_buffers_divisor.push(this_thread_ring_buffer_divisor_read);
+            thread_group_ring_buffers_stop.push(this_thread_ring_buffer_stop_write);
             threads_group.push(thread::spawn(move || {
                  let root:u128 = number_to_check.sqrt().try_into().unwrap();
-                 let mut count = 3 + (thread_number * 2);
-                 
+                 let mut count = 3 + (thread_number * 2); 
                  if 2 > root {
-                    match tx1.send(1) {
-                        Ok(()) => 2,
-                        Err(_) => 0,
-                    };
-                    return (true, 1);
+                     this_thread_ring_buffer_divisor_write.push(1).unwrap();
+                     return (true, 1);
                  }
                  if number_to_check % 2 == 0 {
-                     match tx1.send(2) {
-                        Ok(()) => 2,
-                        Err(_) => 0,
-                     };
+                     this_thread_ring_buffer_divisor_write.push(2).unwrap();
                      return (false, 2);
                  }
 
                  loop {
 
                     if count > root {
-                        match tx1.send(1) {
-                            Ok(()) => 2,
-                            Err(_) => 0,
-                        };
-                     return (true, 1);
+                        this_thread_ring_buffer_divisor_write.push(1).unwrap();
+                        return (true, 1);
                      }       
                  
                      if number_to_check % count == 0 {
-                        match tx1.send(count) {
-                            Ok(()) => 2,
-                            Err(_) => 0,
-                        };
+                        this_thread_ring_buffer_divisor_write.push(count).unwrap();
                         return (false, count);
                      }
 
                      if count2 < 2815369 {
                      }
                      else {
-                         bar1.inc(5630738);
+                        if this_thread_ring_buffer_stop_read.is_empty() {
+                        }
+                        else {
+                        println!("recieved stop command, thread {} stopping",thread_number);
+                        panic!()
+                        }
+                        progress_bar_clone.inc(5630738);
                         count2 = 1;
                     }
 
                      count = count + (number_of_threads * 2);
                      count2 = count2 + 1;
-                   //  graphtx1.send(count);
-                 //  bar1.inc(1);
                  }
 
             }));
         }
         let mut andy:bool = true;
         let mut real_divisor:u128 = 1;
+        let mut received = 0;
         println!("threads started");
-        let received:u128 = match rx.recv() {
-            Ok(num) => num,
-            Err(_) => 0,
-        };
+        loop {
+        for this_thread_ring_buffer_divisor_read in &mut thread_group_ring_buffers_divisor {
+       // let (mut this_thread_ring_buffer_write, mut this_thread_ring_buffer_read) = this_thread_ring_buffer.split();
+            if this_thread_ring_buffer_divisor_read.is_empty() {
+                thread::sleep(Duration::from_millis(1));
+            }
+            else {
+                received = this_thread_ring_buffer_divisor_read.pop().unwrap();
+            }
+        }
+        if received != 0 {
+        break
+        }
+        }
         //println!("recieved message OR burrito packaged");
         if received == 1 {
            // println!("recieved 1");
@@ -120,11 +126,9 @@ fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
         }
         else {
             if received != 0 {
-            for thread_number in 0 .. number_of_threads {
-            println!("letting thread {} know",thread_number)
-    
+            for this_thread_ring_buffer_stop_write in &mut thread_group_ring_buffers_stop {
+                this_thread_ring_buffer_stop_write.push(true).unwrap();
             }
-
             real_divisor = received;
             //andy = false;
             }
