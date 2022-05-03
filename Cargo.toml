@@ -1,6 +1,6 @@
 [package]
 name = "prime_finder"
-version = "3.1.0"
+version = "3.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 num-integer = "0.1.44"
 num_cpus = "1.0"
+ringbuf = "0.2.8"
 indicatif = "0.16.2"
