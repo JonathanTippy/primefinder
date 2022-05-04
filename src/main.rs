@@ -34,15 +34,19 @@ fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
         let mut count2:u128 = 1;
         let mut thread_group_ring_buffers_divisor = vec![];
         let mut thread_group_ring_buffers_stop = vec![];
+        let mut thread_group_ring_buffers_work = vec![];
         let mut threads_group = vec![];
         for thread_number in 0..number_of_threads {
-            let progress_bar_clone = progress_bar.clone();
+           // let progress_bar_clone = progress_bar.clone();
             let this_thread_ring_buffer_divisor = RingBuffer::<u128>::new(1);
             let this_thread_ring_buffer_stop = RingBuffer::<bool>::new(1);
+            let this_thread_ring_buffer_work = RingBuffer::<u128>::new(1024);
             let (mut this_thread_ring_buffer_divisor_write, this_thread_ring_buffer_divisor_read) = this_thread_ring_buffer_divisor.split();
             let (this_thread_ring_buffer_stop_write, this_thread_ring_buffer_stop_read) = this_thread_ring_buffer_stop.split();
+            let (mut this_thread_ring_buffer_work_write, this_thread_ring_buffer_work_read) = this_thread_ring_buffer_work.split();
             thread_group_ring_buffers_divisor.push(this_thread_ring_buffer_divisor_read);
             thread_group_ring_buffers_stop.push(this_thread_ring_buffer_stop_write);
+            thread_group_ring_buffers_work.push(this_thread_ring_buffer_work_read);
             threads_group.push(thread::spawn(move || {
                  let root:u128 = number_to_check.sqrt().try_into().unwrap();
                  let mut count = 3 + (thread_number * 2); 
@@ -58,6 +62,8 @@ fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
                  loop {
 
                     if count > root {
+                        this_thread_ring_buffer_work_write.push(count2 * 2).unwrap();
+                        thread::sleep(Duration::from_millis(100));
                         this_thread_ring_buffer_divisor_write.push(1).unwrap();
                         return (true, 1);
                      }       
@@ -67,76 +73,88 @@ fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
                         return (false, count);
                      }
 
-                     if count2 < 2815369 {
+                     if count2 != 0 {
                      }
                      else {
                         if this_thread_ring_buffer_stop_read.is_empty() {
                         }
                         else {
                         println!("recieved stop command, thread {} stopping",thread_number);
-                        panic!()
+                        return (false, 0);
                         }
-                        progress_bar_clone.inc(5630738);
-                        count2 = 1;
+                        this_thread_ring_buffer_work_write.push(2097152).unwrap();
+                        //progress_bar_clone.inc(4194304);
                     }
 
                      count = count + (number_of_threads * 2);
-                     count2 = count2 + 1;
+                     count2 = (count2 + 1) & 1048575;
                  }
 
             }));
         }
-        let mut andy:bool = true;
-        let mut real_divisor:u128 = 1;
+       // let mut andy:bool = true;
+        let mut divisor:u128 = 0;
         let mut received = 0;
+        let mut done_threads = vec![];
         println!("threads started");
         loop {
-        for this_thread_ring_buffer_divisor_read in &mut thread_group_ring_buffers_divisor {
-       // let (mut this_thread_ring_buffer_write, mut this_thread_ring_buffer_read) = this_thread_ring_buffer.split();
-            if this_thread_ring_buffer_divisor_read.is_empty() {
-                thread::sleep(Duration::from_millis(1));
-            }
-            else {
-                received = this_thread_ring_buffer_divisor_read.pop().unwrap();
-            }
-        }
-        if received != 0 {
-        break
-        }
-        }
-        //println!("recieved message OR burrito packaged");
-        if received == 1 {
-           // println!("recieved 1");
-            for this_thread in threads_group {
-                // Wait for the thread to finish. Returns a result.
-                let this_thread_output = match this_thread.join() {
-                    Ok((bool, u128)) => ((bool, u128)),
-                    Err(_) => (false, 1),
-                };
-                let (primeliness, divisor) = this_thread_output;
-
-                andy = andy && primeliness;
-                if real_divisor == 1 {
-                    if andy != true {
-                        real_divisor = divisor;
-                      //  return (andy, realdivis);
+          //  thread::sleep(Duration::from_millis(10));
+           // let mut done_threads = vec![];
+            let mut all_done = false;
+            for this_thread_ring_buffer_divisor_read in &mut thread_group_ring_buffers_divisor {
+                if this_thread_ring_buffer_divisor_read.is_empty() {
+                   // thread::sleep(Duration::from_millis(10))
+                }
+                else {
+                    received = this_thread_ring_buffer_divisor_read.pop().unwrap();
+                    if received > 1 {
+                        break
+                    }
+                    if received == 1 {
+                        done_threads.push(1);
+                       // progress_bar.tick();
+                       // thread::sleep(Duration::from_millis(10));
+                        let mut count = 0;
+                        for &mut thread in &mut done_threads {
+                            count = count + thread
+                        }
+                        if count == number_of_threads {
+                            all_done = true;
+                            break 
+                        }
                     }
                 }
             }
+            if received > 1 {
+                break
+            }
+                for this_thread_ring_buffer_work_read in &mut thread_group_ring_buffers_work {
+                    if this_thread_ring_buffer_work_read.is_empty() {
+                      //  thread::sleep(Duration::from_millis(10));
+                       // progress_bar.tick();
+                    }
+                    else {
+                        let work_progress = this_thread_ring_buffer_work_read.pop().unwrap();
+                        progress_bar.inc(work_progress.try_into().unwrap())
+                    }
+                }
+            if all_done {
+                progress_bar.finish();
+                break
+            }
         }
-        else {
             if received != 0 {
             for this_thread_ring_buffer_stop_write in &mut thread_group_ring_buffers_stop {
                 this_thread_ring_buffer_stop_write.push(true).unwrap();
             }
-            real_divisor = received;
+            divisor = received;
             //andy = false;
             }
             else {
             println!("there was an issue recieving the divisor from a thread");
             }
-        }
-real_divisor
+        //}
+    return divisor
     }
 }
 
@@ -166,8 +184,20 @@ mod tests {
 
     #[test]
     fn test_one() {
-        let divisor = finds_if_number_is_prime(4);
-        assert_eq!(2, divisor);
+       // let mut primeiness = false;
+        let big_prime_chart:Vec<bool> = vec![false, true, true, false, true, false, true, false, false, false, true, false, true, false, false, false, true, false, true, false, false, false, true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, false, false, false, true, false, true, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, false, false, false, true, false, true, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false];
+        for checking in 1..big_prime_chart.len() {
+        let divisor = finds_if_number_is_prime(checking.try_into().unwrap());
+        let mut primeiness = false;
+        if divisor != 1 {
+            primeiness = false;
+        }
+        else {
+            primeiness = true;
+        }
+        println!("{}", checking);
+        assert_eq!(big_prime_chart[(checking - 1)], primeiness);
+        }
     }
 }
 
