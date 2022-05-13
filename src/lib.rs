@@ -11,7 +11,7 @@ pub fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
     }
     else {
         let number_of_threads:u128 = ((get()) as u128) * 2;
-        println!("spinning up {} threads", number_of_threads);
+      //  println!("spinning up {} threads", number_of_threads);
         let progress_bar = ProgressBar::new(number_to_check.sqrt().try_into().unwrap());
         let mut count2:u128 = 1;
         let mut thread_group_ring_buffers_divisor = vec![];
@@ -40,6 +40,7 @@ pub fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
                      this_thread_ring_buffer_divisor_write.push(2).unwrap();
                      return (false, 2);
                  }
+                 
 
                  loop {
 
@@ -78,7 +79,7 @@ pub fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
         let mut divisor:u128 = 0;
         let mut received = 0;
         let mut done_threads = vec![];
-        println!("threads started");
+       // println!("threads started");
         loop {
           //  thread::sleep(Duration::from_millis(10));
            // let mut done_threads = vec![];
@@ -121,7 +122,7 @@ pub fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
                     }
                 }
             if all_done {
-                progress_bar.finish();
+               // progress_bar.finish();
                 break
             }
         }
@@ -145,7 +146,67 @@ pub fn finds_if_number_is_prime(number_to_check:u128) -> u128 {
     }
 }
 
-
+pub fn collect_primes(list_of_primes:&Vec<u128>) -> Vec<u128> {
+    let number_of_threads = get() as u128 * 2;
+    //println!("number of threads is {}",number_of_threads);
+    let next_number = list_of_primes.last().unwrap() + 2;
+    let mut threads_group = vec![];
+    //let mut threads_group_ring_buffer_worker_send = vec![];
+    //let mut threads_group_ring_buffer_worker_receive = vec![];
+    for this_thread in 0..number_of_threads {
+        //let this_thread_ring_buffer_worker_receive = RingBuffer::<Vec>::new
+        let next_number = next_number.clone();
+        let mut list_of_new_primes = vec![];
+        let og_list_of_primes = list_of_primes.clone();
+        threads_group.push(thread::spawn (move || {
+            let mut this_thread_next_number = next_number + this_thread * 2;
+            //println!("this is thread {} starting at {}",this_thread,this_thread_next_number);
+            loop {
+                let root = (this_thread_next_number).sqrt();
+                if *og_list_of_primes.last().unwrap() >= root + 1 {
+                    let mut prime:bool = true;
+                    let mut place = 0;
+                    let mut checking = 2;
+                    loop {
+                        //println!("cheching is {} and next number is {}",checking,this_thread_next_number);
+                        checking = og_list_of_primes[place];
+                        if checking <= root {
+                            }
+                            else {
+                                prime = true;
+                                break
+                            }
+                            if this_thread_next_number % checking != 0 {
+                            }
+                            else {
+                                prime = false;
+                                break
+                            }
+                        place = place + 1
+                    }
+                    if prime {
+                        list_of_new_primes.push(this_thread_next_number);
+                        //println!("{}",this_thread_next_number);
+                    }
+                    this_thread_next_number = this_thread_next_number + number_of_threads * 2
+                }
+                else {
+                    break
+                }
+            }
+            return list_of_new_primes
+        }))
+    }
+    let mut list = vec![];
+    for this_thread in threads_group {
+        let this_thread_list = this_thread.join().unwrap();
+        for prime in this_thread_list {
+            list.push(prime)
+        }
+    }
+    list.sort();
+    return list
+}
 
 #[cfg(test)]
 mod tests {
